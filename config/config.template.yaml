@@ -1,0 +1,26 @@
+model:
+  provider: custom:baseten
+  default: deepseek-ai/DeepSeek-V4-Flash-0731
+
+providers:
+  baseten:
+    name: Baseten
+    api: https://inference.baseten.co/v1
+    key_env: BASETEN_API_KEY
+    default_model: deepseek-ai/DeepSeek-V4-Flash-0731
+    models:
+      deepseek-ai/DeepSeek-V4-Flash-0731: {}
+
+group_sessions_per_user: true
+
+approvals:
+  mode: manual
+
+security:
+  redact_secrets: true
+
+tool_loop_guardrails:
+  hard_stop_enabled: true
+  hard_stop_after:
+    exact_failure: 5
+    idempotent_no_progress: 5

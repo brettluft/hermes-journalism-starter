@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+require_variable() {
+  local name="$1"
+  if [[ -z "${!name:-}" ]]; then
+    printf 'journalism starter: required variable %s is missing\n' "$name" >&2
+    exit 64
+  fi
+}
+
+require_variable BASETEN_API_KEY
+require_variable DISCORD_BOT_TOKEN
+require_variable DISCORD_ALLOWED_CHANNELS
+require_variable DISCORD_ALLOWED_USERS
+
+printf 'journalism starter: required variables validated\n'

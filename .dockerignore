@@ -1,0 +1,10 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+tests
+README.md
+SECURITY.md
+LICENSE
+__pycache__
