@@ -11,9 +11,9 @@ Discord receives the original message and attachments. Railway runs the Hermes c
 ## Required controls
 
 - Restrict the bot with `DISCORD_ALLOWED_CHANNELS`.
-- Require an explicit `DISCORD_ALLOWED_USERS` list.
-- Understand that authorized users can still use Discord DMs; the channel allowlist applies only to server channels.
-- Do not configure `DISCORD_ALLOWED_ROLES` unless role-based DM authorization is acceptable.
+- Restrict membership and visibility of every allowed channel. Any human who can access an allowed channel can use the bot.
+- Keep user and role allowlists and both allow-all flags unset so direct messages are denied by default. Adding `DISCORD_ALLOWED_USERS`, `DISCORD_ALLOWED_ROLES`, `DISCORD_ALLOW_ALL_USERS`, or `GATEWAY_ALLOW_ALL_USERS` changes the trust boundary and may enable DMs.
+- Review `hermes pairing list` when restoring or reusing `/opt/data`. An approved Discord pairing is a separate authorization grant and can permit that user to use DMs.
 - Use a private Discord channel.
 - Give the bot only the permissions documented in README.md.
 - Never grant the bot Administrator.
@@ -21,7 +21,8 @@ Discord receives the original message and attachments. Railway runs the Hermes c
 - Mount the persistent volume only at `/opt/data`.
 - Review Railway members and deployment logs.
 - Rotate a token immediately if it appears in chat, logs, a commit, or an issue.
-- Keep Discord mentions required in server channels.
+- The starter responds without `@mention` in allowed channels. Do not allow it into general-purpose or public channels.
+- The starter disables automatic Discord threads, so everyone in an allowed channel can see the shared conversation.
 
 The starter enables Hermes secret redaction and manual command approval. These controls reduce accidental exposure but do not make Discord suitable for sensitive documents.
 

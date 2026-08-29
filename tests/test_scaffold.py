@@ -19,6 +19,7 @@ class ScaffoldTests(unittest.TestCase):
             "README.md",
             "LICENSE",
             "SECURITY.md",
+            "setup/discord-bot-setup.html",
         ]
         for relative_path in required:
             with self.subTest(path=relative_path):
@@ -33,6 +34,12 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn("/opt/hermes/docker/SOUL.md", dockerfile)
         self.assertIn("/opt/hermes/skills/", dockerfile)
         self.assertIn('CMD ["gateway", "run"]', dockerfile)
+
+    def test_discord_defaults_are_channel_scoped_mention_free_and_unthreaded(self):
+        dockerfile = (ROOT / "Dockerfile").read_text()
+        self.assertIn("DISCORD_REQUIRE_MENTION=false", dockerfile)
+        self.assertIn("DISCORD_AUTO_THREAD=false", dockerfile)
+        self.assertNotIn("DISCORD_ALLOW_ALL_USERS=true", dockerfile)
 
     def test_railway_config_preserves_image_entrypoint_and_uses_restart_policy(self):
         config = json.loads((ROOT / "railway.json").read_text())
@@ -85,7 +92,7 @@ class ScaffoldTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("BASETEN_API_KEY", result.stderr)
 
-    def test_bootstrap_requires_an_explicit_user_allowlist(self):
+    def test_bootstrap_accepts_channel_allowlist_without_user_allowlist(self):
         script = ROOT / "docker/cont-init.d/00-journalism-bootstrap"
         env = os.environ.copy()
         env.update(
@@ -93,15 +100,14 @@ class ScaffoldTests(unittest.TestCase):
                 "BASETEN_API_KEY": "test-key-not-a-secret",
                 "DISCORD_BOT_TOKEN": "test-discord-token",
                 "DISCORD_ALLOWED_CHANNELS": "987654321",
-                "DISCORD_ALLOWED_ROLES": "111111111",
             }
         )
         env.pop("DISCORD_ALLOWED_USERS", None)
+        env.pop("DISCORD_ALLOWED_ROLES", None)
         result = subprocess.run(
             ["bash", str(script)], env=env, text=True, capture_output=True, check=False
         )
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("DISCORD_ALLOWED_USERS", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_bootstrap_accepts_required_variables_without_writing_state(self):
         script = ROOT / "docker/cont-init.d/00-journalism-bootstrap"
@@ -114,10 +120,11 @@ class ScaffoldTests(unittest.TestCase):
                     "HERMES_HOME": str(home),
                     "BASETEN_API_KEY": "test-key-not-a-secret",
                     "DISCORD_BOT_TOKEN": "test-discord-token",
-                    "DISCORD_ALLOWED_USERS": "123456789",
                     "DISCORD_ALLOWED_CHANNELS": "987654321",
                 }
             )
+            env.pop("DISCORD_ALLOWED_USERS", None)
+            env.pop("DISCORD_ALLOWED_ROLES", None)
             result = subprocess.run(
                 ["bash", str(script)], env=env, text=True, capture_output=True, check=False
             )
@@ -129,10 +136,21 @@ class ScaffoldTests(unittest.TestCase):
         security = (ROOT / "SECURITY.md").read_text().lower()
         self.assertIn("proof of concept", readme)
         self.assertIn("sensitive", readme)
-        self.assertIn("direct messages remain enabled", readme)
+        self.assertIn("direct messages are denied", readme)
         self.assertIn("do not", security)
         self.assertIn("discord", security)
         self.assertIn("baseten", security)
+
+    def test_discord_setup_helper_builds_least_privilege_invite(self):
+        helper = (ROOT / "setup/discord-bot-setup.html").read_text()
+        self.assertIn("https://discord.com/developers/applications", helper)
+        self.assertIn("https://discord.com/oauth2/authorize", helper)
+        self.assertIn("274878024768", helper)
+        self.assertIn("applications.commands", helper)
+        self.assertIn("Message Content Intent", helper)
+        self.assertIn("[hidden]", helper)
+        self.assertNotIn('const PERMISSIONS = "8"', helper)
+        self.assertNotRegex(helper, r'type=["\']password["\']')
 
 
 if __name__ == "__main__":

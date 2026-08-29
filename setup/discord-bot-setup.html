@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Discord bot setup for Hermes</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #10131a; --card: #191e29; --text: #f5f7fb; --muted: #aeb8ca; --line: #30394c; --accent: #7c8cff; --ok: #67d391; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, sans-serif; }
+    main { width: min(760px, calc(100% - 32px)); margin: 48px auto; }
+    h1 { margin-bottom: 8px; font-size: clamp(2rem, 6vw, 3.4rem); line-height: 1.05; }
+    h2 { margin-top: 0; font-size: 1.25rem; }
+    p { color: var(--muted); }
+    .notice, section { margin: 20px 0; padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+    .notice { border-left: 4px solid var(--accent); }
+    .step { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-right: 8px; border-radius: 50%; background: var(--accent); color: white; font-weight: 700; }
+    label { display: block; margin: 14px 0 6px; font-weight: 650; }
+    input, textarea { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: #0f131b; color: var(--text); font: inherit; }
+    textarea { min-height: 130px; resize: vertical; }
+    button, .button { display: inline-block; margin-top: 12px; padding: 11px 15px; border: 0; border-radius: 9px; background: var(--accent); color: white; font: 700 15px system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+    button.secondary { background: #30394c; }
+    button:disabled { cursor: not-allowed; opacity: .5; }
+    [hidden] { display: none !important; }
+    code { color: var(--ok); }
+    ul { color: var(--muted); }
+    .status { min-height: 24px; color: var(--ok); }
+    .small { font-size: .9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Connect Discord to Hermes</h1>
+  <p>This helper generates the bot invite and Railway variable names. It runs entirely in your browser and never asks for your bot token.</p>
+
+  <div class="notice">
+    Discord does not let third-party tools create an application or retrieve its token automatically. Those two actions must happen inside your logged-in Discord Developer Portal. This keeps your token out of the setup page.
+  </div>
+
+  <section>
+    <h2><span class="step">1</span>Create the application</h2>
+    <ol>
+      <li>Open the Developer Portal and choose <strong>New Application</strong>.</li>
+      <li>Give it a newsroom-specific name, such as <code>Example Newsroom Hermes</code>.</li>
+      <li>Open <strong>Bot</strong>. Under Token, choose <strong>Reset Token</strong>, then copy the Bot Token into a password manager.</li>
+      <li>On the same page, enable <strong>Message Content Intent</strong>.</li>
+      <li>Open <strong>General Information</strong> and copy the Application ID.</li>
+    </ol>
+    <a class="button" href="https://discord.com/developers/applications" target="_blank" rel="noopener">Open Discord Developer Portal</a>
+    <p class="small">Use the Bot Token for <code>DISCORD_BOT_TOKEN</code>. Do not use the Public Key, Client Secret, or Application ID as the token.</p>
+  </section>
+
+  <section>
+    <h2><span class="step">2</span>Generate the bot invite</h2>
+    <label for="application-id">Application ID</label>
+    <input id="application-id" inputmode="numeric" autocomplete="off" placeholder="123456789012345678">
+    <button id="invite-button" type="button">Create invite link</button>
+    <p id="invite-status" class="status" aria-live="polite"></p>
+    <a id="invite-link" class="button" href="#" target="_blank" rel="noopener" hidden>Invite bot to Discord</a>
+    <p class="small">The invite asks only for View Channels, Send Messages, Send Messages in Threads, Embed Links, Attach Files, Read Message History, and Add Reactions. It does not ask for Administrator.</p>
+  </section>
+
+  <section>
+    <h2><span class="step">3</span>Choose the allowed channels</h2>
+    <ol>
+      <li>In Discord, open <strong>User Settings</strong>, then <strong>Advanced</strong>, and enable <strong>Developer Mode</strong>.</li>
+      <li>Right-click the private newsroom channel and choose <strong>Copy Channel ID</strong>.</li>
+    </ol>
+    <p class="small">To allow more than one channel, enter the IDs separated by commas.</p>
+    <label for="channel-id">Channel ID</label>
+    <input id="channel-id" inputmode="numeric" autocomplete="off" placeholder="123456789012345678">
+  </section>
+
+  <section>
+    <h2><span class="step">4</span>Add the Railway variables</h2>
+    <p>Paste the Bot Token directly into Railway. Do not paste it into this page.</p>
+    <textarea id="variables" readonly>DISCORD_BOT_TOKEN=&lt;paste Bot Token directly in Railway&gt;
+DISCORD_ALLOWED_CHANNELS=&lt;paste channel ID above&gt;</textarea>
+    <button id="copy-button" class="secondary" type="button">Copy variable template</button>
+    <p id="copy-status" class="status" aria-live="polite"></p>
+    <p class="small">This starter allows any human member of the listed channel to use Hermes. By default, direct messages are denied. An operator can change that later through allowlists, allow-all flags, or an approved Hermes pairing. Replies stay in the channel and do not require an @mention.</p>
+  </section>
+</main>
+<script>
+  const PERMISSIONS = "274878024768";
+  const applicationInput = document.getElementById("application-id");
+  const channelInput = document.getElementById("channel-id");
+  const inviteLink = document.getElementById("invite-link");
+  const inviteStatus = document.getElementById("invite-status");
+  const variables = document.getElementById("variables");
+
+  function numericId(value) {
+    return /^\d{17,20}$/.test(value.trim());
+  }
+
+  document.getElementById("invite-button").addEventListener("click", () => {
+    const clientId = applicationInput.value.trim();
+    if (!numericId(clientId)) {
+      inviteLink.hidden = true;
+      inviteStatus.textContent = "Enter the numeric Application ID from General Information.";
+      return;
+    }
+    const scopes = encodeURIComponent("bot applications.commands");
+    inviteLink.href = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=${PERMISSIONS}&scope=${scopes}`;
+    inviteLink.hidden = false;
+    inviteStatus.textContent = "Invite link ready. You need Manage Server permission to install the bot.";
+  });
+
+  channelInput.addEventListener("input", () => {
+    const channelIds = channelInput.value.trim();
+    const validIds = channelIds.split(",").map(value => value.trim()).filter(Boolean);
+    const displayIds = validIds.length && validIds.every(numericId) ? validIds.join(",") : "<paste channel ID above>";
+    variables.value = `DISCORD_BOT_TOKEN=<paste Bot Token directly in Railway>\nDISCORD_ALLOWED_CHANNELS=${displayIds}`;
+  });
+
+  document.getElementById("copy-button").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(variables.value);
+    } catch {
+      variables.select();
+      document.execCommand("copy");
+    }
+    document.getElementById("copy-status").textContent = "Copied. Replace the token placeholder inside Railway.";
+  });
+</script>
+</body>
+</html>

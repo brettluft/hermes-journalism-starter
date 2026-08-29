@@ -12,6 +12,5 @@ require_variable() {
 require_variable BASETEN_API_KEY
 require_variable DISCORD_BOT_TOKEN
 require_variable DISCORD_ALLOWED_CHANNELS
-require_variable DISCORD_ALLOWED_USERS
 
 printf 'journalism starter: required variables validated\n'

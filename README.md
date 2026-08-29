@@ -21,10 +21,10 @@ Create the following:
 
 1. A [Railway](https://railway.com/) account.
 2. A [Baseten](https://www.baseten.co/) API key with access to the configured model.
-3. A Discord application and bot in the [Discord Developer Portal](https://discord.com/developers/applications).
+3. A Discord application and bot. Open the included [Discord setup helper](setup/discord-bot-setup.html) in a browser to walk through the portal steps and generate the least-privilege invite link.
 4. A private Discord channel for the bot.
 
-In the Discord Developer Portal, enable **Message Content Intent** and **Server Members Intent**. Invite the bot with these permissions:
+In the Discord Developer Portal, enable **Message Content Intent**. Server Members Intent is not needed because this starter does not use a user-name allowlist. Invite the bot with these permissions:
 
 - View Channels
 - Send Messages
@@ -36,7 +36,7 @@ In the Discord Developer Portal, enable **Message Content Intent** and **Server 
 
 Do not grant Administrator.
 
-Turn on Developer Mode in Discord, then copy the IDs for the allowed channel and users.
+Turn on Developer Mode in Discord, then copy the ID for the allowed channel. The setup helper explains where to find it.
 
 ## Railway deployment
 
@@ -46,7 +46,7 @@ This repository is ready to become a Railway template. During private testing:
 2. Add a persistent volume mounted at `/opt/data`. This is required. Redeployments lose Hermes sessions, memory, and configuration without it.
 3. Add the variables below.
 4. Deploy the service.
-5. Confirm the bot appears online, then mention it in the allowed Discord channel.
+5. Confirm the bot appears online, then send it a message in the allowed Discord channel. No `@mention` is required.
 
 Railway does not override the image start command: the official Hermes image entrypoint runs the inherited `gateway run` command. The `00-journalism-bootstrap` init script only validates required variables. The official `01-hermes-setup` script then safely seeds the starter configuration and SOUL and synchronizes bundled skills onto a fresh volume.
 
@@ -56,14 +56,13 @@ Required variables:
 BASETEN_API_KEY
 DISCORD_BOT_TOKEN
 DISCORD_ALLOWED_CHANNELS
-DISCORD_ALLOWED_USERS
 ```
 
-Comma-separate multiple Discord IDs. Keep both allowlists narrow. `DISCORD_ALLOWED_CHANNELS` limits server channels, while `DISCORD_ALLOWED_USERS` controls which people may use the bot.
+Comma-separate multiple channel IDs. `DISCORD_ALLOWED_CHANNELS` limits the server channels where Hermes responds. Any human member who can access one of those channels can communicate with the bot. The image defaults to `DISCORD_REQUIRE_MENTION=false` and `DISCORD_AUTO_THREAD=false`, so replies stay in the channel and do not require `@mention`.
 
-Discord direct messages remain enabled for allowed users, and `DISCORD_ALLOWED_CHANNELS` does not restrict DMs. This proof of concept does not provide a strict channel-only mode. Do not add `DISCORD_ALLOWED_ROLES` unless you deliberately want members of those roles to be authorized, including through DMs when Hermes can verify the role in a mutual server.
+By default, Discord direct messages are denied because this starter does not configure a user or role allowlist. The channel allowlist authorizes guild messages only when the message comes from an allowed channel. Do not set `DISCORD_ALLOW_ALL_USERS`, `GATEWAY_ALLOW_ALL_USERS`, `DISCORD_ALLOWED_USERS`, or `DISCORD_ALLOWED_ROLES` unless you deliberately want to change that behavior. User and role authorization can permit DMs. An operator-approved Discord pairing is also an authorization grant and can permit that paired user to use DMs. Review `hermes pairing list` after restoring or reusing a persistent volume.
 
-After the private deployment works, use Railway's template composer to generate a reusable template from the project. In the template, mark all four required variables as user-supplied and attach a volume at `/opt/data`. Railway generates the final one-click template URL.
+After the private deployment works, use Railway's template composer to generate a reusable template from the project. In the template, mark all three required variables as user-supplied and attach a volume at `/opt/data`. Railway generates the final one-click template URL.
 
 ## Updating
 
