@@ -1,0 +1,26 @@
+{
+  "coverage": {
+    "beats": [],
+    "places": [
+      "Placeholder confirmed place"
+    ],
+    "public_bodies": [
+      "Placeholder public body"
+    ]
+  },
+  "newsroom": {
+    "name": "Placeholder newsroom example",
+    "report_languages": [
+      "en"
+    ],
+    "timezone": "Etc/UTC"
+  },
+  "preferences": {
+    "allow_unofficial_fallbacks": false,
+    "preserve_original_language": true,
+    "require_primary_source_citations": true
+  },
+  "revision": 0,
+  "schema_version": 1,
+  "setup_status": "draft"
+}

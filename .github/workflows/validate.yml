@@ -18,6 +18,8 @@ jobs:
           python-version: "3.12"
       - name: Run scaffold tests
         run: python -m unittest discover -s tests -v
+      - name: Validate Python syntax
+        run: python -m py_compile skills/newsroom-setup/scripts/newsroom_config.py
       - name: Validate shell syntax
         run: bash -n docker/cont-init.d/00-journalism-bootstrap
       - name: Build container
