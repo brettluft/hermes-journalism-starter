@@ -292,6 +292,97 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn("do not edit", lower)
         self.assertIn("authoritative", lower)
 
+    def test_operator_docs_cover_draft_library_setup_policy_and_access_boundary(self):
+        readme = (ROOT / "README.md").read_text()
+        lower = readme.lower()
+        for phrase in (
+            "/opt/data/newsroom/drafts", "canonical", "volume mounted at `/opt/data`",
+            "draft_publish.py init", "do not create the key or draft state",
+            "`destination`: `library`", "`publishing_policy`: `ask_each_time`",
+            "`spacefast_setup_status`: `not_configured`", "`auto_private`",
+            "draft library only", "never spacefast", "draft_library_base_url",
+            "railway_public_domain", "86400 seconds", "forwarded valid link",
+            "no per-user identity", "without a restart", "`/healthz`", "503",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, lower)
+        self.assertLess(
+            lower.index("draft_library_base_url"),
+            lower.index("railway_public_domain", lower.index("draft_library_base_url")),
+        )
+        for policy in ("ask_each_time", "auto_private", "never"):
+            self.assertRegex(lower, rf"(?m)^\| `{policy}` \|")
+
+    def test_operator_docs_cover_spacefast_disclosure_and_upload_boundary(self):
+        combined = (
+            (ROOT / "README.md").read_text() + "\n" +
+            (ROOT / "SECURITY.md").read_text()
+        ).lower()
+        for phrase in (
+            "spacefast_token", "spacefast_team_id", "railway variables",
+            "authenticated rest", "never ask", "never post", "discord",
+            "no anonymous", "shared discord", "each spacefast publish",
+            "approval", "external disclosure", "local remains canonical",
+            "static rendition", "raw source", "newsroom config",
+            "publication metadata", "hmac", "sensitive text",
+            "source-protection", "confidential identities",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, combined)
+
+    def test_operator_docs_include_exact_validation_and_smoke_commands(self):
+        readme = (ROOT / "README.md").read_text()
+        for command in (
+            "python3 -m unittest discover -s tests -v",
+            "python3 -m py_compile skills/newsroom-setup/scripts/newsroom_config.py skills/draft-publishing/scripts/draft_store.py skills/draft-publishing/scripts/spacefast_client.py skills/draft-publishing/scripts/draft_publish.py skills/draft-publishing/scripts/draft_library_server.py",
+            "bash -n docker/cont-init.d/00-journalism-bootstrap",
+            "bash -n docker/services.d/draft-library/run",
+            "python3 -m json.tool skills/newsroom-setup/templates/newsroom.example.json >/dev/null",
+            "python3 -m json.tool skills/newsroom-setup/templates/sources.example.json >/dev/null",
+            "docker build -t hermes-journalism-starter .",
+            "curl -i http://127.0.0.1:8080/healthz",
+            "stat -c '%a' /opt/data/newsroom/draft-library/hmac.key",
+            "python3 -m unittest tests.test_spacefast_client -v",
+        ):
+            with self.subTest(command=command):
+                self.assertIn(command, readme)
+        self.assertIn("fake spacefast", readme.lower())
+        self.assertIn("no live spacefast", readme.lower())
+
+    def test_env_example_documents_optional_publishing_variables_without_secrets(self):
+        text = (ROOT / ".env.example").read_text()
+        for assignment in (
+            "# DRAFT_LIBRARY_BASE_URL=", "# RAILWAY_PUBLIC_DOMAIN=",
+            "# SPACEFAST_TOKEN=", "# SPACEFAST_TEAM_ID=",
+        ):
+            self.assertIn(assignment, text)
+        self.assertIn("DRAFT_LIBRARY_BASE_URL takes precedence", text)
+        self.assertIn("Railway public domain", text)
+        self.assertNotRegex(
+            text,
+            r"(?m)^(?:DRAFT_LIBRARY_BASE_URL|RAILWAY_PUBLIC_DOMAIN|SPACEFAST_TOKEN|SPACEFAST_TEAM_ID)=.+$",
+        )
+
+    def test_ci_validates_all_scripts_shell_json_and_image_contract(self):
+        workflow = (ROOT / ".github/workflows/validate.yml").read_text()
+        for script in (
+            "skills/newsroom-setup/scripts/newsroom_config.py",
+            "skills/draft-publishing/scripts/draft_store.py",
+            "skills/draft-publishing/scripts/spacefast_client.py",
+            "skills/draft-publishing/scripts/draft_publish.py",
+            "skills/draft-publishing/scripts/draft_library_server.py",
+        ):
+            self.assertIn(script, workflow)
+        for template in (
+            "skills/newsroom-setup/templates/newsroom.example.json",
+            "skills/newsroom-setup/templates/sources.example.json",
+        ):
+            self.assertIn(f"python -m json.tool {template}", workflow)
+        self.assertIn("python -m unittest discover -s tests -v", workflow)
+        self.assertIn("bash -n docker/cont-init.d/00-journalism-bootstrap", workflow)
+        self.assertIn("bash -n docker/services.d/draft-library/run", workflow)
+        self.assertIn("docker build --tag hermes-journalism-starter:test .", workflow)
+
     def test_soul_has_concise_newsroom_behavior_without_skill_procedure(self):
         soul = (ROOT / "SOUL.md").read_text()
         lower = soul.lower()
@@ -406,6 +497,29 @@ class SkillScaffoldTests(unittest.TestCase):
         self.assertIn("never accept secrets in discord", lower)
         self.assertIn("official cross-links", lower)
         self.assertIn("not domain suffix", lower)
+
+    def test_draft_publishing_skill_encodes_disclosure_approval_and_partial_failure(self):
+        required = ("skills/draft-publishing/SKILL.md",
+                    "skills/draft-publishing/references/publishing-contract.md",
+                    "skills/draft-publishing/scripts/spacefast_client.py")
+        for relative in required:
+            self.assertTrue((ROOT / relative).is_file(), relative)
+        skill = self.skill_text("skills/draft-publishing/SKILL.md")
+        contract = (ROOT / required[1]).read_text()
+        lower = skill.lower()
+        for phrase in ("local save first", "/opt/data/newsroom/drafts", "canonical",
+                       "disclosure boundary", "editor approval", "auto_private",
+                       "private draft library", "never authorizes spacefast",
+                       "anonymous spacefast", "shared discord", "never ask",
+                       "spacefast_token", "spacefast_team_id", "railway variables",
+                       "verify each target", "partial failure"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, lower)
+        self.assertIn("https://spacefast.com/setup.md", contract)
+        self.assertIn("https://api.spacefast.com/openapi.json", contract)
+        self.assertIn("2026-08-30", contract)
+        setup = (ROOT / "skills/newsroom-setup/SKILL.md").read_text().lower()
+        self.assertIn("optional draft preference interview", setup)
 
     def test_newsroom_setup_has_exactly_four_initial_editorial_questions(self):
         skill = self.skill_text("skills/newsroom-setup/SKILL.md")

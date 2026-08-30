@@ -202,6 +202,271 @@ class NewsroomConfigTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue(payload["valid"])
 
+    def test_effective_drafts_config_supplies_fresh_defaults_without_mutation(self):
+        legacy = newsroom()
+        before = json.loads(json.dumps(legacy))
+
+        first = CONFIG_MODULE.effective_drafts_config(legacy)
+        second = CONFIG_MODULE.effective_drafts_config(legacy)
+
+        expected = {
+            "destination": "library",
+            "publishing_policy": "ask_each_time",
+            "spacefast_setup_status": "not_configured",
+        }
+        self.assertEqual(first, expected)
+        self.assertEqual(second, expected)
+        self.assertIsNot(first, second)
+        first["destination"] = "spacefast"
+        self.assertEqual(second, expected)
+        self.assertEqual(legacy, before)
+        self.assertNotIn("drafts", legacy)
+
+    def test_init_newsroom_contains_default_drafts_config(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            self.init_home(temporary)
+            stored = json.loads((Path(temporary) / "newsroom/newsroom.json").read_text())
+            self.assertEqual(
+                stored["drafts"],
+                {
+                    "destination": "library",
+                    "publishing_policy": "ask_each_time",
+                    "spacefast_setup_status": "not_configured",
+                },
+            )
+
+    def test_validate_newsroom_accepts_every_drafts_enum_combination(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            for destination in ("library", "spacefast", "both"):
+                for publishing_policy in ("ask_each_time", "auto_private", "never"):
+                    for setup_status in ("not_configured", "configured"):
+                        with self.subTest(
+                            destination=destination,
+                            publishing_policy=publishing_policy,
+                            setup_status=setup_status,
+                        ):
+                            document = newsroom(drafts={
+                                "destination": destination,
+                                "publishing_policy": publishing_policy,
+                                "spacefast_setup_status": setup_status,
+                            })
+                            path = self.write_json(temporary, "drafts.json", document)
+                            result, payload = self.run_cli(
+                                "validate", "--kind", "newsroom", "--input", path
+                            )
+                            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+                            self.assertTrue(payload["valid"])
+
+    def test_validate_newsroom_rejects_non_strict_drafts_config(self):
+        valid = {
+            "destination": "library",
+            "publishing_policy": "ask_each_time",
+            "spacefast_setup_status": "not_configured",
+        }
+        cases = {
+            "non-object": [],
+            "missing-key": {key: value for key, value in valid.items() if key != "destination"},
+            "extra-key": {**valid, "label": "private"},
+            "destination-bool": {**valid, "destination": True},
+            "policy-null": {**valid, "publishing_policy": None},
+            "setup-number": {**valid, "spacefast_setup_status": 1},
+            "case-variant": {**valid, "destination": "Library"},
+            "unsupported-enum": {**valid, "publishing_policy": "always"},
+            "url-field": {**valid, "url": "https://example.test"},
+            "team-field": {**valid, "team_id": "team-1"},
+            "space-field": {**valid, "space_id": "space-1"},
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            for name, drafts in cases.items():
+                with self.subTest(name=name):
+                    path = self.write_json(
+                        temporary, name + ".json", newsroom(drafts=drafts)
+                    )
+                    result, payload = self.run_cli(
+                        "validate", "--kind", "newsroom", "--input", path
+                    )
+                    self.assertNotEqual(result.returncode, 0, result.stdout)
+                    self.assertFalse(payload["valid"])
+
+    def test_nested_drafts_secret_reaches_recursive_field_name_rejection(self):
+        drafts = {
+            "destination": {"settings": {"token": "DO-NOT-STORE"}},
+            "publishing_policy": "ask_each_time",
+            "spacefast_setup_status": "not_configured",
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write_json(temporary, "nested-secret.json", newsroom(drafts=drafts))
+            result, payload = self.run_cli(
+                "validate", "--kind", "newsroom", "--input", path
+            )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertFalse(payload["valid"])
+        self.assertIn("forbidden field name", payload["error"])
+        self.assertIn("token", payload["error"])
+        self.assertNotIn("drafts must contain exactly", payload["error"])
+
+    def test_deployment_credential_field_names_are_rejected_anywhere(self):
+        forbidden_fields = (
+            "SPACEFAST_TOKEN",
+            "SPACEFAST_TEAM_ID",
+            "spacefast_token",
+            "access_token",
+            "client_secret",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            for index, field in enumerate(forbidden_fields):
+                with self.subTest(field=field):
+                    document = newsroom(
+                        editorial_metadata={
+                            "sections": [{"workflow": {field: "DO-NOT-STORE"}}]
+                        }
+                    )
+                    path = self.write_json(temporary, f"credential-{index}.json", document)
+                    result, payload = self.run_cli(
+                        "validate", "--kind", "newsroom", "--input", path
+                    )
+                    self.assertNotEqual(result.returncode, 0, result.stdout)
+                    self.assertFalse(payload["valid"])
+                    self.assertIn("forbidden field name", payload["error"])
+                    self.assertIn(field, payload["error"])
+
+    def test_ordinary_editorial_id_fields_are_not_treated_as_credentials(self):
+        document = newsroom(
+            editorial_metadata={
+                "story_id": "story-1",
+                "editor_id": "editor-1",
+                "assignment_id": "assignment-1",
+            }
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write_json(temporary, "editorial-ids.json", document)
+            result, payload = self.run_cli(
+                "validate", "--kind", "newsroom", "--input", path
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        self.assertTrue(payload["valid"])
+
+    def test_deployment_credential_fields_cannot_be_applied_or_persisted(self):
+        forbidden_fields = (
+            "SPACEFAST_TOKEN",
+            "SPACEFAST_TEAM_ID",
+            "spacefast_token",
+            "access_token",
+            "client_secret",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary) / "home"
+            self.init_home(home)
+            root = home / "newsroom"
+            target = root / "newsroom.json"
+            audit = root / "audit/config-events.jsonl"
+            before = (target.read_bytes(), audit.read_bytes())
+
+            for index, field in enumerate(forbidden_fields):
+                with self.subTest(field=field):
+                    document = newsroom(
+                        editorial_metadata={
+                            "sections": [{"workflow": {field: "DO-NOT-PERSIST"}}]
+                        }
+                    )
+                    path = self.write_json(temporary, f"apply-credential-{index}.json", document)
+                    result, payload = self.run_cli(
+                        "apply", "--home", home, "--kind", "newsroom", "--input", path
+                    )
+                    self.assertNotEqual(result.returncode, 0, result.stdout)
+                    self.assertFalse(payload["ok"])
+                    self.assertIn("forbidden field name", payload["error"])
+                    self.assertEqual((target.read_bytes(), audit.read_bytes()), before)
+                    self.assertFalse((root / "newsroom.json.previous").exists())
+                    self.assertFalse((root / ".config-transaction.json").exists())
+
+    def test_legacy_newsroom_lifecycle_does_not_add_drafts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary) / "home"
+            self.init_home(home)
+            target = home / "newsroom/newsroom.json"
+            target.write_text(json.dumps(newsroom()), encoding="utf-8")
+            candidate = self.write_json(
+                temporary,
+                "legacy.json",
+                newsroom(newsroom={**newsroom()["newsroom"], "name": "Legacy applied"}),
+            )
+            validated, _ = self.run_cli(
+                "validate", "--kind", "newsroom", "--input", candidate
+            )
+            self.assertEqual(validated.returncode, 0, validated.stdout)
+            applied, _ = self.run_cli(
+                "apply", "--home", home, "--kind", "newsroom", "--input", candidate
+            )
+            self.assertEqual(applied.returncode, 0, applied.stdout)
+            self.assertNotIn("drafts", json.loads(target.read_text()))
+            status, payload = self.run_cli("status", "--home", home)
+            self.assertEqual(status.returncode, 0, status.stdout)
+            self.assertTrue(payload["newsroom"]["valid"])
+            undone, _ = self.run_cli("undo", "--home", home, "--kind", "newsroom")
+            self.assertEqual(undone.returncode, 0, undone.stdout)
+            self.assertNotIn("drafts", json.loads(target.read_text()))
+
+    def test_drafts_config_preserves_apply_recovery_completion_and_hash_only_audit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary) / "home"
+            self.init_home(home)
+            active_path = self.write_json(temporary, "active.json", sources())
+            applied, _ = self.run_cli(
+                "apply", "--home", home, "--kind", "sources", "--input", active_path
+            )
+            self.assertEqual(applied.returncode, 0, applied.stdout)
+            drafts = {
+                "destination": "both",
+                "publishing_policy": "auto_private",
+                "spacefast_setup_status": "configured",
+            }
+            candidate = self.write_json(
+                temporary, "complete-with-drafts.json",
+                newsroom(setup_status="complete", drafts=drafts),
+            )
+            env = os.environ.copy()
+            env["NEWSROOM_CONFIG_FAILPOINT"] = "target_replace"
+            failed, payload = self.run_cli(
+                "apply", "--home", home, "--kind", "newsroom", "--input", candidate,
+                env=env,
+            )
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertFalse(payload["ok"])
+            status, payload = self.run_cli("status", "--home", home)
+            self.assertEqual(status.returncode, 0, status.stdout)
+            self.assertTrue(payload["newsroom"]["valid"])
+            target = home / "newsroom/newsroom.json"
+            self.assertEqual(json.loads(target.read_text())["drafts"], drafts)
+            event = json.loads(
+                (home / "newsroom/audit/config-events.jsonl").read_text().splitlines()[-1]
+            )
+            self.assertEqual(event["new_sha256"], hashlib.sha256(target.read_bytes()).hexdigest())
+            self.assertNotIn("document", event)
+            self.assertNotIn("destination", json.dumps(event))
+
+    def test_newsroom_example_has_safe_defaults_and_validates(self):
+        example = ROOT / "skills/newsroom-setup/templates/newsroom.example.json"
+        document = json.loads(example.read_text(encoding="utf-8"))
+        self.assertEqual(
+            document["drafts"],
+            {
+                "destination": "library",
+                "publishing_policy": "ask_each_time",
+                "spacefast_setup_status": "not_configured",
+            },
+        )
+        serialized = json.dumps(document).lower()
+        for forbidden in ("api_key", "password", "secret", "token", "team_id", "space_id"):
+            self.assertNotIn(forbidden, serialized)
+        result, payload = self.run_cli(
+            "validate", "--kind", "newsroom", "--input", example
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        self.assertTrue(payload["valid"])
+
     def test_validate_complete_newsroom_remains_independent_of_profile_sources(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = self.write_json(

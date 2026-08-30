@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+unset SPACEFAST_TOKEN SPACEFAST_TEAM_ID
+exec python3 /opt/hermes/skills/draft-publishing/scripts/draft_library_server.py

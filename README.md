@@ -94,6 +94,46 @@ On Railway, `$HERMES_HOME` is `/opt/data`, so mutable newsroom state is under `/
 
 The required Railway persistent volume at `/opt/data` keeps these files across restarts and redeploys. Bundled skill upgrades do not overwrite newsroom choices. They also preserve locally modified or deliberately deleted skill copies under the synchronization rules below. Setup changes are validated, can be reviewed before apply, and can be undone.
 
+## Draft publishing
+
+The local path `/opt/data/newsroom/drafts` is the canonical draft store. Railway must have a persistent volume mounted at `/opt/data`; otherwise drafts, the signing key, and publication records disappear on redeploy. Local state remains canonical after any publication.
+
+Draft Library setup is explicit. Run this once from the Railway service shell:
+
+```bash
+python3 /opt/data/skills/draft-publishing/scripts/draft_publish.py init
+```
+
+Startup, skill import, `status`, and the HTTP server do not create the key or draft state. `init` creates a 32-byte HMAC key at `/opt/data/newsroom/draft-library/hmac.key` with mode `600` and does not replace an existing key.
+
+The optional `drafts` object in `newsroom.json` has these effective defaults for older configurations:
+
+- `destination`: `library`, with allowed values `library`, `spacefast`, or `both`
+- `publishing_policy`: `ask_each_time`
+- `spacefast_setup_status`: `not_configured`, or `configured` after operator setup
+
+The publication policy matrix is:
+
+| Policy | Draft Library | Spacefast |
+| --- | --- | --- |
+| `ask_each_time` | Require editor approval for each link. | Require editor approval for each publish. |
+| `auto_private` | May automate the private Draft Library only. | Never Spacefast. Each publish still requires editor approval. |
+| `never` | Disabled. | Disabled. |
+
+### Railway public domain for Draft Library
+
+In Railway, enable public networking for the service and generate or attach an HTTPS domain. Base URL precedence is `DRAFT_LIBRARY_BASE_URL` first, then `RAILWAY_PUBLIC_DOMAIN`. Set `DRAFT_LIBRARY_BASE_URL` only for a validated custom HTTPS origin. Railway normally supplies `RAILWAY_PUBLIC_DOMAIN` after public networking is enabled.
+
+Signed links can last no more than 86400 seconds. Anyone with a forwarded valid link can read the rendition until it expires. There is no per-user identity or authorization after possession of the link. Removing or rotating `/opt/data/newsroom/draft-library/hmac.key`, followed by explicit `init` when replacing it, revokes old links without a restart.
+
+`/healthz` is a public liveness endpoint and returns 200 even before setup. Draft content returns 503 before explicit setup. Do not put private details in health checks or treat liveness as readiness for content.
+
+### Optional Spacefast publication
+
+To enable direct publication, set `SPACEFAST_TOKEN` and `SPACEFAST_TEAM_ID` as private Railway variables and mark `spacefast_setup_status` as `configured` through the reviewed newsroom configuration workflow. They are optional and are not bootstrap requirements. Spacefast publication uses authenticated REST only. Never ask for these values. Never post them in Discord. There is no anonymous shared Discord flow.
+
+Each Spacefast publish requires explicit editor approval, including under `auto_private`. Publishing is an external disclosure to Spacefast, while local remains canonical. Only the generated static rendition is uploaded. The raw source, newsroom config, publication metadata, and HMAC key are never uploaded. A rendition can still contain sensitive text. It is not suitable for source-protection work or confidential identities.
+
 ## Updating
 
 Redeploy after merging repository changes. Hermes seeds `config.yaml` and `SOUL.md` only when they are absent. On startup, Hermes also synchronizes bundled skills into the persistent `/opt/data/skills` directory. It installs new bundled skills on existing volumes, updates unchanged copies, and preserves locally modified or deliberately deleted copies. Redeploys do not overwrite newsroom choices in `/opt/data/newsroom`.
@@ -150,17 +190,35 @@ An apply or undo can replace the one available previous version for that documen
 
 ## Local validation
 
-For a quick test from a repository checkout, initialize only a disposable directory and read it back:
+Run these commands from the repository root. They use fake Spacefast fixtures and make no live Spacefast request by default.
 
 ```bash
-export HERMES_HOME="$(mktemp -d)"
-python3 skills/newsroom-setup/scripts/newsroom_config.py init --home "$HERMES_HOME"
-python3 skills/newsroom-setup/scripts/newsroom_config.py status --home "$HERMES_HOME"
-python3 -m py_compile skills/newsroom-setup/scripts/newsroom_config.py
 python3 -m unittest discover -s tests -v
+python3 -m py_compile skills/newsroom-setup/scripts/newsroom_config.py skills/draft-publishing/scripts/draft_store.py skills/draft-publishing/scripts/spacefast_client.py skills/draft-publishing/scripts/draft_publish.py skills/draft-publishing/scripts/draft_library_server.py
+bash -n docker/cont-init.d/00-journalism-bootstrap
+bash -n docker/services.d/draft-library/run
+python3 -m json.tool railway.json >/dev/null
 python3 -m json.tool skills/newsroom-setup/templates/newsroom.example.json >/dev/null
 python3 -m json.tool skills/newsroom-setup/templates/sources.example.json >/dev/null
+python3 -m unittest tests.test_spacefast_client -v
 docker build -t hermes-journalism-starter .
+```
+
+The focused fake Spacefast command tests the authenticated client against local fixtures. There is no live Spacefast test in the default suite.
+
+For a container smoke test, use a disposable host directory. This starts only the bundled Draft Library server so it does not require real Discord or Baseten credentials:
+
+```bash
+SMOKE_DATA="$(mktemp -d)"
+docker run --rm -d --name journalism-draft-smoke -p 8080:8080 -v "$SMOKE_DATA:/opt/data" --entrypoint python3 hermes-journalism-starter /opt/hermes/skills/draft-publishing/scripts/draft_library_server.py
+curl -i http://127.0.0.1:8080/healthz
+curl -i 'http://127.0.0.1:8080/draft/smoke?expires=1&sig=0000000000000000000000000000000000000000000000000000000000000000'
+# The health request must return 200. Content must return 503 before explicit setup.
+docker exec journalism-draft-smoke python3 /opt/hermes/skills/draft-publishing/scripts/draft_publish.py init
+docker exec journalism-draft-smoke stat -c '%a' /opt/data/newsroom/draft-library/hmac.key
+# The HMAC key mode must be 600.
+docker stop journalism-draft-smoke
+rm -rf "$SMOKE_DATA"
 ```
 
 ## License

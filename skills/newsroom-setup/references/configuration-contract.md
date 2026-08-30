@@ -13,7 +13,37 @@ The setup CLI owns two files under `$HERMES_HOME/newsroom/`:
 
 Source status is `candidate`, `active`, or `inactive`. Authority status is `official`, `official_mirror`, or `non_official`. Record-type availability is `verified`, `partial`, `unavailable`, or `unknown`.
 
-An active official source needs an RFC3339 `last_validated_at` value. URLs must use HTTPS. Source IDs must be unique safe identifiers. Language values use BCP 47 style tags. The CLI rejects fields named `api_key`, `password`, `secret`, or `token` at any depth. Configuration must never contain credentials.
+An active official source needs an RFC3339 `last_validated_at` value. URLs must use HTTPS. Source IDs must be unique safe identifiers. Language values use BCP 47 style tags. At any depth, the CLI case-insensitively rejects the exact credential field names `api_key`, `password`, `secret`, `token`, `spacefast_token`, `spacefast_team_id`, `access_token`, and `client_secret`. This is an exact-name policy: ordinary editorial fields such as `story_id` and `editor_id` remain allowed. Configuration must never contain credentials.
+
+## Draft destinations and publication policy
+
+`newsroom.json` may contain a `drafts` object. When present, it must contain exactly these three string fields, with no missing or additional fields:
+
+```json
+{
+  "drafts": {
+    "destination": "library",
+    "publishing_policy": "ask_each_time",
+    "spacefast_setup_status": "not_configured"
+  }
+}
+```
+
+- `destination`: `library`, `spacefast`, or `both`.
+- `publishing_policy`: `ask_each_time`, `auto_private`, or `never`.
+- `spacefast_setup_status`: `not_configured` or `configured`.
+
+For backward compatibility, a schema-version-1 document without `drafts` remains valid. Its effective values are `library`, `ask_each_time`, and `not_configured`; reading, validating, and reporting status do not add the object or rewrite the file. Legacy `apply` and `undo` operations may rewrite the selected file and increment its revision as usual, but they do not synthesize an absent `drafts` object. `apply` materializes `drafts` only when the candidate includes it; `undo` restores whether the selected backup contains it. New files created by `init` include the defaults.
+
+Publication policy is interpreted as follows:
+
+| Policy | Draft Library | Spacefast when selected by `destination` |
+| --- | --- | --- |
+| `ask_each_time` | Require explicit approval for each publication. | Require explicit approval for each publication. |
+| `auto_private` | May publish automatically to the private Draft Library. | Still require explicit approval for each external publication. |
+| `never` | Do not publish. | Do not publish. |
+
+`spacefast_setup_status=configured` records editorial/setup state only; it does not prove runtime credentials are available. `SPACEFAST_TOKEN` and `SPACEFAST_TEAM_ID` are Railway variables and must never be stored in `newsroom.json` (or any other newsroom configuration, draft, audit event, or chat message). Their case-insensitive JSON field-name forms, plus `access_token` and `client_secret`, are covered by the recursive exact-name rejection policy above. URLs, team IDs, space IDs, credentials, and other deployment-specific fields are not allowed in `drafts`.
 
 ## Commands
 

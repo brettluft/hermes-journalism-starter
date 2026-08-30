@@ -19,8 +19,20 @@ jobs:
       - name: Run scaffold tests
         run: python -m unittest discover -s tests -v
       - name: Validate Python syntax
-        run: python -m py_compile skills/newsroom-setup/scripts/newsroom_config.py
+        run: >-
+          python -m py_compile skills/newsroom-setup/scripts/newsroom_config.py
+          skills/draft-publishing/scripts/draft_store.py
+          skills/draft-publishing/scripts/spacefast_client.py
+          skills/draft-publishing/scripts/draft_publish.py
+          skills/draft-publishing/scripts/draft_library_server.py
       - name: Validate shell syntax
-        run: bash -n docker/cont-init.d/00-journalism-bootstrap
+        run: |
+          bash -n docker/cont-init.d/00-journalism-bootstrap
+          bash -n docker/services.d/draft-library/run
+      - name: Validate JSON templates
+        run: |
+          python -m json.tool railway.json >/dev/null
+          python -m json.tool skills/newsroom-setup/templates/newsroom.example.json >/dev/null
+          python -m json.tool skills/newsroom-setup/templates/sources.example.json >/dev/null
       - name: Build container
         run: docker build --tag hermes-journalism-starter:test .

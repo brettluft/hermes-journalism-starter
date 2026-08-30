@@ -8,6 +8,11 @@
       "Placeholder public body"
     ]
   },
+  "drafts": {
+    "destination": "library",
+    "publishing_policy": "ask_each_time",
+    "spacefast_setup_status": "not_configured"
+  },
   "newsroom": {
     "name": "Placeholder newsroom example",
     "report_languages": [

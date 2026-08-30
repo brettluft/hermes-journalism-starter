@@ -18,13 +18,23 @@ import re
 import stat
 import sys
 import time
+from types import MappingProxyType
 from typing import Any, Iterator, NoReturn
 import uuid
 from urllib.parse import urlsplit
 
 
 KINDS = ("newsroom", "sources")
-SECRET_KEYS = {"api_key", "password", "secret", "token"}
+FORBIDDEN_CREDENTIAL_FIELD_NAMES = frozenset({
+    "api_key",
+    "password",
+    "secret",
+    "token",
+    "spacefast_token",
+    "spacefast_team_id",
+    "access_token",
+    "client_secret",
+})
 LANGUAGE_RE = re.compile(r"^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$")
 SOURCE_ID_RE = re.compile(r"^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$")
 HOSTNAME_LABEL_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
@@ -36,6 +46,19 @@ RFC3339_RE = re.compile(
 )
 LOCK_ATTEMPTS = 50
 LOCK_DELAY_SECONDS = 0.1
+DRAFT_DESTINATIONS = frozenset({"library", "spacefast", "both"})
+DRAFT_PUBLISHING_POLICIES = frozenset({"ask_each_time", "auto_private", "never"})
+SPACEFAST_SETUP_STATUSES = frozenset({"not_configured", "configured"})
+DRAFTS_DEFAULTS = MappingProxyType({
+    "destination": "library",
+    "publishing_policy": "ask_each_time",
+    "spacefast_setup_status": "not_configured",
+})
+DRAFTS_ENUMS = MappingProxyType({
+    "destination": DRAFT_DESTINATIONS,
+    "publishing_policy": DRAFT_PUBLISHING_POLICIES,
+    "spacefast_setup_status": SPACEFAST_SETUP_STATUSES,
+})
 
 
 class ConfigError(Exception):
@@ -58,6 +81,7 @@ def default_newsroom() -> dict[str, Any]:
             "report_languages": ["en"],
         },
         "coverage": {"places": [], "public_bodies": [], "beats": []},
+        "drafts": dict(DRAFTS_DEFAULTS),
         "preferences": {
             "preserve_original_language": True,
             "require_primary_source_citations": True,
@@ -82,15 +106,20 @@ def require_nonempty_string(value: Any, label: str) -> str:
     return value
 
 
-def reject_secret_keys(value: Any, location: str = "document") -> None:
+def reject_forbidden_credential_field_names(
+    value: Any, location: str = "document"
+) -> None:
     if isinstance(value, dict):
         for key, child in value.items():
-            if isinstance(key, str) and key.lower() in SECRET_KEYS:
+            if (
+                isinstance(key, str)
+                and key.lower() in FORBIDDEN_CREDENTIAL_FIELD_NAMES
+            ):
                 raise ConfigError(f"forbidden field name at {location}: {key}")
-            reject_secret_keys(child, f"{location}.{key}")
+            reject_forbidden_credential_field_names(child, f"{location}.{key}")
     elif isinstance(value, list):
         for index, child in enumerate(value):
-            reject_secret_keys(child, f"{location}[{index}]")
+            reject_forbidden_credential_field_names(child, f"{location}[{index}]")
 
 
 def reject_unicode_surrogates(value: Any) -> None:
@@ -110,7 +139,7 @@ def reject_unicode_surrogates(value: Any) -> None:
 def validate_common(document: Any) -> dict[str, Any]:
     document = require_object(document, "document")
     reject_unicode_surrogates(document)
-    reject_secret_keys(document)
+    reject_forbidden_credential_field_names(document)
     if document.get("schema_version") != 1 or isinstance(document.get("schema_version"), bool):
         raise ConfigError("schema_version must be 1")
     revision = document.get("revision")
@@ -127,6 +156,24 @@ def validate_languages(value: Any, label: str) -> None:
     for language in value:
         if not isinstance(language, str) or not LANGUAGE_RE.fullmatch(language):
             raise ConfigError(f"{label} contains an invalid language tag")
+
+
+def effective_drafts_config(document: Any) -> dict[str, str]:
+    """Return validated draft preferences, supplying legacy defaults without mutation."""
+    document = require_object(document, "document")
+    if "drafts" not in document:
+        return dict(DRAFTS_DEFAULTS)
+    drafts = require_object(document["drafts"], "drafts")
+    if set(drafts) != set(DRAFTS_DEFAULTS):
+        raise ConfigError(
+            "drafts must contain exactly destination, publishing_policy, "
+            "and spacefast_setup_status"
+        )
+    for field, allowed in DRAFTS_ENUMS.items():
+        value = drafts[field]
+        if not isinstance(value, str) or value not in allowed:
+            raise ConfigError(f"drafts.{field} is invalid")
+    return dict(drafts)
 
 
 def is_iana_style_timezone(value: str) -> bool:
@@ -225,6 +272,8 @@ def validate_newsroom(document: Any) -> None:
     ):
         if not isinstance(preferences.get(field), bool):
             raise ConfigError(f"preferences.{field} must be a boolean")
+
+    effective_drafts_config(document)
 
 
 def is_rfc3339(value: Any) -> bool:

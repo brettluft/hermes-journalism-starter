@@ -35,6 +35,8 @@ Ask these initial questions in plain language, together when practical. The mark
 4. What is the first job you want to do?
 <!-- INITIAL_EDITORIAL_QUESTIONS_END -->
 
+After the four answers, offer an optional draft preference interview as a separate follow-up. Explain `library`, `spacefast`, and `both`, plus `ask_each_time`, `auto_private`, and `never`. Do not add it to the initial question set, do not require it to complete newsroom source setup, and never solicit credentials. Spacefast credentials belong only in Railway variables.
+
 Never ask the user for APIs, CSS selectors, feeds, cron expressions, or technical platform names. Discover technical details yourself. Ask a follow-up only when an ambiguity changes coverage. Treat every place name as ambiguous until the editor confirms the country, territory, or other governing context. Model coverage as places and public bodies. Do not force a United States, Canadian, or other country's administrative hierarchy onto it.
 
 Setup states have these exact meanings:

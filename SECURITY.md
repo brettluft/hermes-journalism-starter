@@ -26,6 +26,14 @@ Discord receives the original message and attachments. Railway runs the Hermes c
 
 The starter enables Hermes secret redaction and manual command approval. These controls reduce accidental exposure but do not make Discord suitable for sensitive documents.
 
+## Draft publication boundary
+
+Draft Library signed links are bearer links. Anyone who receives a forwarded valid link can read its rendition until expiry or signing-key rotation. Link possession has no per-user identity check. The public `/healthz` endpoint contains liveness only.
+
+Spacefast is a separate external disclosure. Use only authenticated REST with `SPACEFAST_TOKEN` and `SPACEFAST_TEAM_ID` stored as Railway variables. Never ask for or post either value in Discord. There is no anonymous shared-Discord Spacefast flow, and each Spacefast publish requires editor approval.
+
+Only the generated static rendition is uploaded to Spacefast, never the raw source, newsroom config, publication metadata, or HMAC key. The local draft remains canonical. A static rendition can still contain sensitive text. Draft Library and Spacefast are not suitable for source-protection work, sensitive documents, or confidential identities.
+
 ## Baseten review
 
 Before wider use, the operator should review Baseten's current Terms, DPA, privacy policy, security documentation, subprocessors, model retention, and training-use terms. Obtain written answers when organizational policy requires them. Do not infer that a zero-data-retention claim covers account metadata, billing records, abuse-prevention logs, application logs, or every inference product.
