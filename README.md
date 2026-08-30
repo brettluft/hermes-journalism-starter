@@ -10,7 +10,7 @@ It is not a hosted product. Each newsroom or journalist deploys and pays for the
 - Discord gateway mode
 - Baseten's OpenAI-compatible inference endpoint
 - Persistent Hermes configuration, sessions, memory, and skills under `/opt/data`
-- No custom journalism skills yet; targeted workflows will be added as they are defined
+- The [`unslop`](skills/unslop/SKILL.md) editing skill for removing common AI writing patterns
 - Manual approval for dangerous commands
 - Secret redaction in Hermes tool output
 - Tool-loop hard stops for an unattended gateway
@@ -66,7 +66,7 @@ After the private deployment works, use Railway's template composer to generate 
 
 ## Updating
 
-Redeploy after merging repository changes. Hermes seeds `config.yaml` and `SOUL.md` only when they are absent.
+Redeploy after merging repository changes. Hermes seeds `config.yaml` and `SOUL.md` only when they are absent. On startup, Hermes also synchronizes bundled skills into the persistent `/opt/data/skills` directory. It installs new bundled skills on existing volumes, updates unchanged copies, and preserves locally modified or deliberately deleted copies.
 
 To adopt an updated starter config or SOUL on an existing volume, compare the repository version with the copy in `/opt/data` and merge it deliberately.
 
@@ -86,3 +86,5 @@ docker build -t hermes-journalism-starter .
 ## License
 
 The starter files in this repository are available under the MIT License. Hermes Agent remains subject to its own upstream license.
+
+The bundled `unslop` skill comes from the [Cursor plugins repository](https://github.com/cursor/plugins/tree/main/pstack/skills/unslop) and is distributed under its original MIT license. Its attribution and source record are stored with the skill.

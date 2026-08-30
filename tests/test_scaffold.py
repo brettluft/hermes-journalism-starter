@@ -1,4 +1,5 @@
 import json
+import hashlib
 import os
 from pathlib import Path
 import subprocess
@@ -20,6 +21,9 @@ class ScaffoldTests(unittest.TestCase):
             "LICENSE",
             "SECURITY.md",
             "setup/discord-bot-setup.html",
+            "skills/unslop/SKILL.md",
+            "skills/unslop/LICENSE",
+            "skills/unslop/SOURCE.md",
         ]
         for relative_path in required:
             with self.subTest(path=relative_path):
@@ -32,8 +36,23 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn("/etc/cont-init.d/00-journalism-bootstrap", dockerfile)
         self.assertIn("/opt/hermes/cli-config.yaml.example", dockerfile)
         self.assertIn("/opt/hermes/docker/SOUL.md", dockerfile)
-        self.assertNotIn("COPY skills/", dockerfile)
+        self.assertIn("COPY skills/ /opt/hermes/skills/", dockerfile)
         self.assertIn('CMD ["gateway", "run"]', dockerfile)
+
+    def test_unslop_skill_is_bundled_with_upstream_license(self):
+        skill = (ROOT / "skills/unslop/SKILL.md").read_text()
+        license_text = (ROOT / "skills/unslop/LICENSE").read_text()
+        self.assertTrue(skill.startswith("---\nname: unslop\n"))
+        self.assertIn("description: Cut AI tells from any writing. Must always apply.", skill)
+        self.assertIn("## Patterns to detect and fix", skill)
+        self.assertEqual(
+            hashlib.sha256(skill.encode()).hexdigest(),
+            "181883e539caec8258ec9129e3ba5f133409144a2cbf2aa361158ab94cfc3441",
+        )
+        self.assertIn("MIT License", license_text)
+        self.assertIn("Copyright (c) 2026 Lauren Tan", license_text)
+        source = (ROOT / "skills/unslop/SOURCE.md").read_text()
+        self.assertIn("2a93c06bbe54fde89a36c88e63ef07477da323d4", source)
 
     def test_discord_defaults_are_channel_scoped_mention_free_and_unthreaded(self):
         dockerfile = (ROOT / "Dockerfile").read_text()
