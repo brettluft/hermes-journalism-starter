@@ -1,6 +1,6 @@
 # Hermes Journalism Starter
 
-This is a proof of concept for running [Hermes Agent](https://github.com/NousResearch/hermes-agent) as a private Discord research assistant on Railway. It uses a Baseten-hosted model and includes a small set of journalism workflows.
+This is a proof of concept for running [Hermes Agent](https://github.com/NousResearch/hermes-agent) as a private Discord research assistant on Railway. It uses a Baseten-hosted model and is designed to support newsroom-specific workflows.
 
 It is not a hosted product. Each newsroom or journalist deploys and pays for their own Railway and Baseten accounts, owns their Discord bot, and controls their Hermes data volume.
 
@@ -10,7 +10,7 @@ It is not a hosted product. Each newsroom or journalist deploys and pays for the
 - Discord gateway mode
 - Baseten's OpenAI-compatible inference endpoint
 - Persistent Hermes configuration, sessions, memory, and skills under `/opt/data`
-- Source verification, transcript analysis, and public-records research skills
+- No custom journalism skills yet; targeted workflows will be added as they are defined
 - Manual approval for dangerous commands
 - Secret redaction in Hermes tool output
 - Tool-loop hard stops for an unattended gateway
@@ -48,7 +48,7 @@ This repository is ready to become a Railway template. During private testing:
 4. Deploy the service.
 5. Confirm the bot appears online, then send it a message in the allowed Discord channel. No `@mention` is required.
 
-Railway does not override the image start command: the official Hermes image entrypoint runs the inherited `gateway run` command. The `00-journalism-bootstrap` init script only validates required variables. The official `01-hermes-setup` script then safely seeds the starter configuration and SOUL and synchronizes bundled skills onto a fresh volume.
+Railway does not override the image start command: the official Hermes image entrypoint runs the inherited `gateway run` command. The `00-journalism-bootstrap` init script only validates required variables. The official `01-hermes-setup` script then safely seeds the starter configuration and SOUL onto a fresh volume.
 
 Required variables:
 
@@ -66,7 +66,7 @@ After the private deployment works, use Railway's template composer to generate 
 
 ## Updating
 
-Redeploy after merging repository changes. Hermes seeds `config.yaml` and `SOUL.md` only when they are absent. Its bundled-skill manifest can update an unchanged starter skill while preserving a locally modified or deliberately deleted copy.
+Redeploy after merging repository changes. Hermes seeds `config.yaml` and `SOUL.md` only when they are absent.
 
 To adopt an updated starter config or SOUL on an existing volume, compare the repository version with the copy in `/opt/data` and merge it deliberately.
 
@@ -85,4 +85,4 @@ docker build -t hermes-journalism-starter .
 
 ## License
 
-The starter files and journalism skills in this repository are available under the MIT License. Hermes Agent remains subject to its own upstream license.
+The starter files in this repository are available under the MIT License. Hermes Agent remains subject to its own upstream license.

@@ -32,7 +32,7 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn("/etc/cont-init.d/00-journalism-bootstrap", dockerfile)
         self.assertIn("/opt/hermes/cli-config.yaml.example", dockerfile)
         self.assertIn("/opt/hermes/docker/SOUL.md", dockerfile)
-        self.assertIn("/opt/hermes/skills/", dockerfile)
+        self.assertNotIn("COPY skills/", dockerfile)
         self.assertIn('CMD ["gateway", "run"]', dockerfile)
 
     def test_discord_defaults_are_channel_scoped_mention_free_and_unthreaded(self):
