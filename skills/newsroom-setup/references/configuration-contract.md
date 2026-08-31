@@ -2,18 +2,36 @@
 
 The setup CLI owns two files under `$HERMES_HOME/newsroom/`:
 
-- `newsroom.json` holds editorial scope, report languages, and evidence preferences.
+- `newsroom.json` holds editorial scope, report languages, confirmed style, and evidence preferences.
 - `sources.json` holds source authority, approval state, record-type checks, languages, and validation times.
 
 `schema_version` is `1`. `revision` is a nonnegative integer managed by the CLI. Newsroom setup status is `draft`, `partial`, or `complete`:
 
 - `draft`: the interview or source discovery is not approved.
 - `partial`: configuration is usable, but source coverage or test gaps remain; it is unfinished.
-- `complete`: the editor approved the scope and gaps, the first live check completed, and at least one active validated official or official_mirror source exists.
+- `complete`: the editor approved the scope and gaps, confirmed the editorial style, the first live check completed, and at least one active validated official or official_mirror source exists.
 
 Source status is `candidate`, `active`, or `inactive`. Authority status is `official`, `official_mirror`, or `non_official`. Record-type availability is `verified`, `partial`, `unavailable`, or `unknown`.
 
 An active official source needs an RFC3339 `last_validated_at` value. URLs must use HTTPS. Source IDs must be unique safe identifiers. Language values use BCP 47 style tags. At any depth, the CLI case-insensitively rejects the exact credential field names `api_key`, `password`, `secret`, `token`, `spacefast_token`, `spacefast_team_id`, `access_token`, and `client_secret`. This is an exact-name policy: ordinary editorial fields such as `story_id` and `editor_id` remain allowed. Configuration must never contain credentials.
+
+## Editorial style
+
+`newsroom.editorial_style` contains exactly these fields:
+
+```json
+{
+  "editorial_style": {
+    "guide": "Canadian Press",
+    "house_rules": ["Use the newsroom's spelling for local place names"],
+    "confirmed_by_editor": true
+  }
+}
+```
+
+`guide` is the editor-confirmed name of the governing style, such as Canadian Press, Associated Press, Reuters, a custom newsroom guide, or no formal guide. It is limited to 200 characters. `house_rules` is an array of at most 100 nonempty rules, each limited to 1,000 characters. House rules take priority when they conflict with the named guide. `confirmed_by_editor` must be a boolean.
+
+New draft configurations use `guide=undetermined`, an empty rule list, and `confirmed_by_editor=false`. A legacy schema-version-1 document without `editorial_style` remains valid while its setup state is `draft` or `partial`; its effective style is the same unresolved default and reads do not rewrite it. A `complete` newsroom requires `confirmed_by_editor=true` and a guide other than `unknown` or `undetermined`. The agent must not produce editorial content until this requirement is met.
 
 ## Draft destinations and publication policy
 

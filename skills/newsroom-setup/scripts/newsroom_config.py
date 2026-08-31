@@ -59,6 +59,11 @@ DRAFTS_ENUMS = MappingProxyType({
     "publishing_policy": DRAFT_PUBLISHING_POLICIES,
     "spacefast_setup_status": SPACEFAST_SETUP_STATUSES,
 })
+EDITORIAL_STYLE_FIELDS = frozenset({"guide", "house_rules", "confirmed_by_editor"})
+UNCONFIRMED_STYLE_GUIDE = "undetermined"
+MAX_STYLE_GUIDE_LENGTH = 200
+MAX_HOUSE_RULES = 100
+MAX_HOUSE_RULE_LENGTH = 1000
 
 
 class ConfigError(Exception):
@@ -79,6 +84,11 @@ def default_newsroom() -> dict[str, Any]:
             "name": "Unnamed newsroom",
             "timezone": "Etc/UTC",
             "report_languages": ["en"],
+            "editorial_style": {
+                "guide": UNCONFIRMED_STYLE_GUIDE,
+                "house_rules": [],
+                "confirmed_by_editor": False,
+            },
         },
         "coverage": {"places": [], "public_bodies": [], "beats": []},
         "drafts": dict(DRAFTS_DEFAULTS),
@@ -176,6 +186,66 @@ def effective_drafts_config(document: Any) -> dict[str, str]:
     return dict(drafts)
 
 
+def effective_editorial_style(details: Any) -> dict[str, Any]:
+    """Return validated style settings, treating a missing legacy field as unresolved."""
+    details = require_object(details, "newsroom")
+    if "editorial_style" not in details:
+        return {
+            "guide": UNCONFIRMED_STYLE_GUIDE,
+            "house_rules": [],
+            "confirmed_by_editor": False,
+        }
+
+    style = require_object(details["editorial_style"], "newsroom.editorial_style")
+    if set(style) != EDITORIAL_STYLE_FIELDS:
+        raise ConfigError(
+            "newsroom.editorial_style must contain exactly guide, house_rules, "
+            "and confirmed_by_editor"
+        )
+
+    guide = require_nonempty_string(style["guide"], "newsroom.editorial_style.guide")
+    if len(guide) > MAX_STYLE_GUIDE_LENGTH:
+        raise ConfigError(
+            f"newsroom.editorial_style.guide must be at most {MAX_STYLE_GUIDE_LENGTH} characters"
+        )
+    if any(ord(character) < 0x20 or ord(character) == 0x7F for character in guide):
+        raise ConfigError("newsroom.editorial_style.guide contains a control character")
+
+    house_rules = style["house_rules"]
+    if not isinstance(house_rules, list) or len(house_rules) > MAX_HOUSE_RULES:
+        raise ConfigError(
+            f"newsroom.editorial_style.house_rules must be an array of at most {MAX_HOUSE_RULES} items"
+        )
+    for index, rule in enumerate(house_rules):
+        rule = require_nonempty_string(
+            rule, f"newsroom.editorial_style.house_rules[{index}]"
+        )
+        if len(rule) > MAX_HOUSE_RULE_LENGTH:
+            raise ConfigError(
+                "newsroom.editorial_style.house_rules entries must be at most "
+                f"{MAX_HOUSE_RULE_LENGTH} characters"
+            )
+        if any(ord(character) < 0x20 or ord(character) == 0x7F for character in rule):
+            raise ConfigError(
+                f"newsroom.editorial_style.house_rules[{index}] contains a control character"
+            )
+
+    confirmed = style["confirmed_by_editor"]
+    if not isinstance(confirmed, bool):
+        raise ConfigError("newsroom.editorial_style.confirmed_by_editor must be a boolean")
+    normalized_guide = guide.strip().lower()
+    if confirmed and normalized_guide in {"unknown", UNCONFIRMED_STYLE_GUIDE}:
+        raise ConfigError("a confirmed editorial style must name the guide or custom style")
+    if not confirmed and normalized_guide != UNCONFIRMED_STYLE_GUIDE:
+        raise ConfigError("an unconfirmed editorial style guide must be undetermined")
+
+    return {
+        "guide": guide,
+        "house_rules": list(house_rules),
+        "confirmed_by_editor": confirmed,
+    }
+
+
 def is_iana_style_timezone(value: str) -> bool:
     if URL_SCHEME_PREFIX_RE.match(value) or any(character.isspace() for character in value):
         return False
@@ -258,6 +328,9 @@ def validate_newsroom(document: Any) -> None:
     if not is_iana_style_timezone(timezone_name):
         raise ConfigError("newsroom.timezone must be IANA-style text containing '/'")
     validate_languages(details.get("report_languages"), "newsroom.report_languages")
+    editorial_style = effective_editorial_style(details)
+    if document["setup_status"] == "complete" and not editorial_style["confirmed_by_editor"]:
+        raise ConfigError("setup_status complete requires a confirmed editorial style")
 
     coverage = require_object(document.get("coverage"), "coverage")
     for field in ("places", "public_bodies", "beats"):

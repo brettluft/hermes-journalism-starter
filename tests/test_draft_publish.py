@@ -53,7 +53,12 @@ class DraftPublishTests(unittest.TestCase):
         return {
             "schema_version": 1, "revision": 0, "setup_status": "draft",
             "newsroom": {"name": "Test newsroom", "timezone": "Etc/UTC",
-                         "report_languages": ["en"]},
+                         "report_languages": ["en"],
+                         "editorial_style": {
+                             "guide": "Canadian Press",
+                             "house_rules": ["Use the outlet's local dateline format."],
+                             "confirmed_by_editor": True,
+                         }},
             "coverage": {"places": [], "public_bodies": [], "beats": []},
             "drafts": {"destination": "library", "publishing_policy": "ask_each_time",
                        "spacefast_setup_status": "not_configured"},
@@ -61,6 +66,57 @@ class DraftPublishTests(unittest.TestCase):
                             "require_primary_source_citations": True,
                             "allow_unofficial_fallbacks": False},
         }
+
+    def test_editorial_style_preflight_blocks_save_link_and_publish(self):
+        source = Path(self.temporary.name) / "source.md"
+        source.write_text("Draft copy", encoding="utf-8")
+        source.chmod(0o600)
+        self.publisher.store.save("one", "title", "source")
+        self.publisher.initialize()
+
+        for style in (
+            None,
+            {"guide": "undetermined", "house_rules": [],
+             "confirmed_by_editor": False},
+        ):
+            document = self.valid_newsroom()
+            if style is None:
+                del document["newsroom"]["editorial_style"]
+            else:
+                document["newsroom"]["editorial_style"] = style
+            self.config_path.write_text(json.dumps(document))
+            for operation in (
+                lambda: self.publisher.save_file("blocked", "title", source),
+                lambda: self.publisher.link("one", 60, editor_approved=True),
+                lambda: self.publisher.publish("one", editor_approved=True),
+            ):
+                with self.subTest(style=style, operation=operation), self.assertRaisesRegex(
+                    self.module.PublishError, "^editorial_style_unconfirmed$"
+                ):
+                    operation()
+            self.assertFalse(self.draft_root.joinpath("blocked").exists())
+
+    def test_publish_fails_fast_if_style_is_revoked_during_authorization(self):
+        self.publisher.store.save("one", "title", "source")
+        self.publisher.initialize()
+        factory = mock.Mock()
+        self.publisher._spacefast_factory = factory
+
+        for destination in ("both", "spacefast"):
+            config = {
+                "destination": destination,
+                "publishing_policy": "ask_each_time",
+                "spacefast_setup_status": "configured",
+            }
+            revoked = self.module.PublishError("editorial_style_unconfirmed")
+            with self.subTest(destination=destination), mock.patch.object(
+                self.publisher, "load_draft_config", side_effect=[config, revoked]
+            ):
+                with self.assertRaisesRegex(
+                    self.module.PublishError, "^editorial_style_unconfirmed$"
+                ):
+                    self.publisher.publish("one", editor_approved=True)
+            factory.assert_not_called()
 
     def test_production_paths_are_fixed_and_parser_has_no_relocation_or_secret_options(self):
         self.assertEqual(self.module.PRODUCTION_KEY_PATH,
@@ -489,7 +545,7 @@ class DraftPublishTests(unittest.TestCase):
 
     def test_cli_save_commit_uncertain_is_one_sanitized_json_error(self):
         publisher = mock.Mock()
-        publisher.store.save_file.side_effect = self.module.SaveCommitUncertain()
+        publisher.save_file.side_effect = self.module.SaveCommitUncertain()
         with mock.patch.object(self.module, "DraftPublisher", return_value=publisher), \
                 mock.patch("builtins.print") as output:
             code = self.module.main([

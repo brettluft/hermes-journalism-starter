@@ -14,6 +14,11 @@
     "spacefast_setup_status": "not_configured"
   },
   "newsroom": {
+    "editorial_style": {
+      "confirmed_by_editor": false,
+      "guide": "undetermined",
+      "house_rules": []
+    },
     "name": "Placeholder newsroom example",
     "report_languages": [
       "en"

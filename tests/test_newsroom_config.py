@@ -29,6 +29,11 @@ def newsroom(**overrides):
             "name": "The Daily Test",
             "timezone": "Europe/Paris",
             "report_languages": ["en", "fr-FR"],
+            "editorial_style": {
+                "guide": "Canadian Press",
+                "house_rules": [],
+                "confirmed_by_editor": True,
+            },
         },
         "coverage": {"places": [], "public_bodies": [], "beats": []},
         "preferences": {
@@ -201,6 +206,133 @@ class NewsroomConfigTests(unittest.TestCase):
             result, payload = self.run_cli("validate", "--kind", "newsroom", "--input", path)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue(payload["valid"])
+
+    def test_editorial_style_requires_exact_bounded_fields(self):
+        valid_styles = (
+            {
+                "guide": "Associated Press",
+                "house_rules": [],
+                "confirmed_by_editor": True,
+            },
+            {
+                "guide": "Custom newsroom style",
+                "house_rules": ["Use Canadian spelling", "Write dates as day month year"],
+                "confirmed_by_editor": True,
+            },
+            {
+                "guide": "undetermined",
+                "house_rules": [],
+                "confirmed_by_editor": False,
+            },
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            for index, style in enumerate(valid_styles):
+                with self.subTest(valid=style):
+                    candidate = newsroom()
+                    candidate["newsroom"]["editorial_style"] = style
+                    path = self.write_json(temporary, f"valid-{index}.json", candidate)
+                    result, payload = self.run_cli(
+                        "validate", "--kind", "newsroom", "--input", path
+                    )
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertTrue(payload["valid"])
+
+            invalid_styles = (
+                None,
+                {},
+                {"guide": "Associated Press", "house_rules": []},
+                {
+                    "guide": "Associated Press",
+                    "house_rules": [],
+                    "confirmed_by_editor": True,
+                    "edition": "2026",
+                },
+                {"guide": "", "house_rules": [], "confirmed_by_editor": True},
+                {"guide": "A" * 201, "house_rules": [], "confirmed_by_editor": True},
+                {"guide": "Associated Press", "house_rules": "none", "confirmed_by_editor": True},
+                {"guide": "Associated Press", "house_rules": [""], "confirmed_by_editor": True},
+                {"guide": "Associated Press", "house_rules": ["A" * 1001], "confirmed_by_editor": True},
+                {"guide": "Associated Press", "house_rules": [], "confirmed_by_editor": "yes"},
+                {"guide": "unknown", "house_rules": [], "confirmed_by_editor": True},
+            )
+            for index, style in enumerate(invalid_styles):
+                with self.subTest(invalid=style):
+                    candidate = newsroom()
+                    candidate["newsroom"]["editorial_style"] = style
+                    path = self.write_json(temporary, f"invalid-{index}.json", candidate)
+                    result, payload = self.run_cli(
+                        "validate", "--kind", "newsroom", "--input", path
+                    )
+                    self.assertNotEqual(result.returncode, 0, result.stdout)
+                    self.assertFalse(payload["valid"])
+
+    def test_complete_newsroom_requires_editor_confirmed_style(self):
+        for style in (
+            None,
+            {
+                "guide": "undetermined",
+                "house_rules": [],
+                "confirmed_by_editor": False,
+            },
+        ):
+            with self.subTest(style=style), tempfile.TemporaryDirectory() as temporary:
+                candidate = newsroom(setup_status="complete")
+                if style is None:
+                    candidate["newsroom"].pop("editorial_style")
+                else:
+                    candidate["newsroom"]["editorial_style"] = style
+                path = self.write_json(temporary, "newsroom.json", candidate)
+                result, payload = self.run_cli(
+                    "validate", "--kind", "newsroom", "--input", path
+                )
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("confirmed editorial style", payload["error"])
+
+    def test_legacy_style_migration_is_readable_unfinished_and_fails_closed_complete(self):
+        for status in ("draft", "partial"):
+            document = newsroom(setup_status=status)
+            del document["newsroom"]["editorial_style"]
+            before = json.dumps(document, sort_keys=True)
+            CONFIG_MODULE.validate_newsroom(document)
+            self.assertEqual(json.dumps(document, sort_keys=True), before)
+            self.assertEqual(
+                CONFIG_MODULE.effective_editorial_style(document["newsroom"]),
+                {"guide": "undetermined", "house_rules": [],
+                 "confirmed_by_editor": False},
+            )
+
+        complete = newsroom(setup_status="complete")
+        del complete["newsroom"]["editorial_style"]
+        with self.assertRaisesRegex(
+            CONFIG_MODULE.ConfigError, "setup_status complete requires a confirmed editorial style"
+        ):
+            CONFIG_MODULE.validate_newsroom(complete)
+
+    def test_editorial_style_rejects_rule_count_and_ascii_controls(self):
+        too_many = newsroom()
+        too_many["newsroom"]["editorial_style"]["house_rules"] = ["rule"] * 101
+        with self.assertRaises(CONFIG_MODULE.ConfigError):
+            CONFIG_MODULE.validate_newsroom(too_many)
+
+        for field, value in (("guide", "Canadian\nPress"),
+                             ("house_rules", ["No tabs\there"])):
+            document = newsroom()
+            document["newsroom"]["editorial_style"][field] = value
+            with self.subTest(field=field), self.assertRaises(CONFIG_MODULE.ConfigError):
+                CONFIG_MODULE.validate_newsroom(document)
+
+    def test_init_newsroom_marks_editorial_style_undetermined(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            self.init_home(temporary)
+            stored = json.loads((Path(temporary) / "newsroom/newsroom.json").read_text())
+            self.assertEqual(
+                stored["newsroom"]["editorial_style"],
+                {
+                    "guide": "undetermined",
+                    "house_rules": [],
+                    "confirmed_by_editor": False,
+                },
+            )
 
     def test_effective_drafts_config_supplies_fresh_defaults_without_mutation(self):
         legacy = newsroom()

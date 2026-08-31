@@ -335,12 +335,19 @@ class DraftPublisher:
         document = _read_json_regular(self.config_path, validator)
         try:
             validator.validate_document("newsroom", document)
+            style = validator.effective_editorial_style(document["newsroom"])
             config = validator.effective_drafts_config(document)
-            if not isinstance(config, dict):
-                raise TypeError("validator returned malformed draft config")
-            return config
+            if not isinstance(style, dict) or not isinstance(config, dict):
+                raise TypeError("validator returned malformed effective configuration")
         except Exception as error:
             raise PublishError("invalid_config") from error
+        if style.get("confirmed_by_editor") is not True:
+            raise PublishError("editorial_style_unconfirmed")
+        return config
+
+    def save_file(self, draft_id: str, title: str, source_path: Path) -> dict[str, Any]:
+        self.load_draft_config()
+        return self.store.save_file(draft_id, title, source_path)
 
     def link(self, draft_id: str, ttl_seconds: int,
              *, editor_approved: bool = False) -> dict[str, Any]:
@@ -393,9 +400,16 @@ class DraftPublisher:
                                  editor_approved=editor_approved)
                 result["library"] = {"status": "published", **link}
             except PublishError as error:
+                if str(error) in {"editorial_style_unconfirmed", "invalid_config"}:
+                    raise
                 result["library"] = {"status": str(error)}
         if destination in {"spacefast", "both"}:
-            if config["spacefast_setup_status"] != "configured":
+            current_config = self.load_draft_config()
+            if current_config["publishing_policy"] == "never":
+                raise PublishError("publication_disabled")
+            if current_config["destination"] not in {"spacefast", "both"}:
+                result["spacefast"] = {"status": "spacefast_destination_disabled"}
+            elif current_config["spacefast_setup_status"] != "configured":
                 result["spacefast"] = {"status": "spacefast_not_configured"}
             elif not editor_approved:
                 # auto_private applies only to the local Draft Library.
@@ -481,7 +495,7 @@ def main(argv: list[str] | None = None) -> int:
         elif arguments.command == "status":
             payload = {"ok": True, **publisher.status()}
         elif arguments.command == "save":
-            saved = publisher.store.save_file(arguments.id, arguments.title, Path(arguments.input))
+            saved = publisher.save_file(arguments.id, arguments.title, Path(arguments.input))
             payload = {"ok": True, **saved}
         elif arguments.command == "link":
             payload = {"ok": True, **publisher.link(

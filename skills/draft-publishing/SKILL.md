@@ -9,12 +9,13 @@ Use this skill when an editor wants to save, preview, share, or publish a genera
 
 ## Workflow
 
-1. **Local save first.** Save the accepted title and source with `draft_publish.py save`. Drafts under `/opt/data/newsroom/drafts` are canonical. A remote rendition is a disposable snapshot and must never overwrite local source, rendition, or publication state.
-2. Read the effective `drafts` preferences from newsroom configuration. Show the selected destination and the disclosure boundary: a Draft Library bearer link discloses the rendered text to anyone who has the link; Spacefast sends the rendered text to an external processor and team Space.
-3. Obtain per-operation editor approval when policy is `ask_each_time`. `auto_private` may automatically issue only a private Draft Library link. It never authorizes Spacefast; every Spacefast operation requires explicit editor approval for that operation. `never` permits local save only.
-4. Initialize the Draft Library key only when an operator explicitly requests setup. Do not initialize it during startup, status, save, or Spacefast setup.
-5. Run `draft_publish.py publish --id ID --editor-approved` only after recording the current approval. Omit the flag when approval was not given. Approval is not reusable.
-6. Verify each target independently. Report the Library and Spacefast statuses separately. A partial failure is not full success; say which target succeeded, which failed, and whether a safe retry is possible.
+1. **Style preflight.** Run newsroom configuration status and read the current authoritative `newsroom.json` before drafting, saving, linking, or publishing. Do not rely on remembered style. Require `newsroom.editorial_style.confirmed_by_editor=true`. Apply the named guide, then apply house rules as overrides. Do not draft, save, link, or publish if style is absent or unconfirmed; stop and invoke `newsroom-setup`.
+2. **Local save first.** Save the accepted title and source with `draft_publish.py save`. Drafts under `/opt/data/newsroom/drafts` are canonical. A remote rendition is a disposable snapshot and must never overwrite local source, rendition, or publication state.
+3. Read the effective `drafts` preferences from newsroom configuration. Show the selected destination and the disclosure boundary: a Draft Library bearer link discloses the rendered text to anyone who has the link; Spacefast sends the rendered text to an external processor and team Space.
+4. Obtain per-operation editor approval when policy is `ask_each_time`. `auto_private` may automatically issue only a private Draft Library link. It never authorizes Spacefast; every Spacefast operation requires explicit editor approval for that operation. `never` permits local save only.
+5. Initialize the Draft Library key only when an operator explicitly requests setup. Do not initialize it during startup, status, save, or Spacefast setup.
+6. Run `draft_publish.py publish --id ID --editor-approved` only after recording the current approval. Omit the flag when approval was not given. Approval is not reusable.
+7. Verify each target independently. Report the Library and Spacefast statuses separately. A partial failure is not full success; say which target succeeded, which failed, and whether a safe retry is possible.
 
 ## Spacefast safeguards
 

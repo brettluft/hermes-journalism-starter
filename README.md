@@ -68,7 +68,7 @@ After the private deployment works, use Railway's template composer to generate 
 
 ## First newsroom session
 
-Start with a message such as: "Set up coverage for our newsroom." The `newsroom-setup` skill checks the deployment, asks four editorial questions, discovers and tests a candidate source pack, and asks an editor to approve it. The intended first-session outcome is that the editor names the coverage, approves the discovered source pack, and receives one live, cited result from an approved source.
+Start with a message such as: "Set up coverage for our newsroom." The `newsroom-setup` skill checks the deployment, asks five editorial questions, including the newsroom's style guide and house rules, discovers and tests a candidate source pack, and asks an editor to approve it. The agent does not produce editorial content until an editor confirms the style. The intended first-session outcome is that the editor names the coverage, confirms the style, approves the discovered source pack, and receives one live, cited result from an approved source.
 
 Setup is conversational and can be rerun. For example:
 

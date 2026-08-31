@@ -389,6 +389,8 @@ class ScaffoldTests(unittest.TestCase):
         for phrase in (
             "missing, draft, or partial",
             "newsroom-setup",
+            "confirmed editorial style",
+            "before producing editorial content",
             "configured official sources",
             "preserve original language",
             "planned",
@@ -466,6 +468,8 @@ class SkillScaffoldTests(unittest.TestCase):
             "newsroom or team",
             "places or public bodies",
             "default report language",
+            "editorial style guide",
+            "house rules",
             "first job",
             "five to ten",
             "candidate",
@@ -521,11 +525,11 @@ class SkillScaffoldTests(unittest.TestCase):
         setup = (ROOT / "skills/newsroom-setup/SKILL.md").read_text().lower()
         self.assertIn("optional draft preference interview", setup)
 
-    def test_newsroom_setup_has_exactly_four_initial_editorial_questions(self):
+    def test_newsroom_setup_has_exactly_five_initial_editorial_questions(self):
         skill = self.skill_text("skills/newsroom-setup/SKILL.md")
         questions = self.marked_block(skill, "INITIAL_EDITORIAL_QUESTIONS")
         question_lines = [line for line in questions.splitlines() if line.strip()]
-        self.assertEqual(len(question_lines), 4)
+        self.assertEqual(len(question_lines), 5)
         for number, line in enumerate(question_lines, start=1):
             self.assertRegex(
                 line, rf"^{number}\. .+\?$", f"question {number} is not a numbered question"
@@ -540,6 +544,38 @@ class SkillScaffoldTests(unittest.TestCase):
         for term in technical_terms:
             with self.subTest(term=term):
                 self.assertNotRegex(questions.lower(), rf"\b{term}\b")
+
+        self.assertLess(questions.lower().index("style"), questions.lower().index("first job"))
+
+    def test_style_discovery_requires_editor_confirmation_before_content(self):
+        skill = self.skill_text("skills/newsroom-setup/SKILL.md")
+        lower = skill.lower()
+        for phrase in (
+            "canadian press",
+            "associated press",
+            "do not infer",
+            "editor confirms",
+            "do not produce editorial content",
+            "house rules override",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, lower)
+
+        route_paths = (
+            "skills/government-records-research/SKILL.md",
+            "skills/draft-publishing/SKILL.md",
+        )
+        route_texts = [("SOUL.md", (ROOT / "SOUL.md").read_text().lower())]
+        route_texts.extend(
+            (route_path, self.skill_text(route_path).lower()) for route_path in route_paths
+        )
+        for route_path, text in route_texts:
+            with self.subTest(route=route_path):
+                self.assertIn("current authoritative", text)
+                self.assertIn("confirmed_by_editor", text)
+                self.assertIn("do not", text)
+        research = self.skill_text("skills/government-records-research/SKILL.md").lower()
+        self.assertIn("ad hoc scope never relaxes the confirmed-style prerequisite", research)
 
     def test_newsroom_setup_orders_deployment_checks_before_any_mutation(self):
         skill = self.skill_text("skills/newsroom-setup/SKILL.md")
