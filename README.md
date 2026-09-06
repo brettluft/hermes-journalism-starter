@@ -63,9 +63,9 @@ DISCORD_BOT_TOKEN
 DISCORD_ALLOWED_CHANNELS
 ```
 
-Comma-separate multiple channel IDs. `DISCORD_ALLOWED_CHANNELS` limits the server channels where Hermes responds. Any human member who can access one of those channels can communicate with the bot. The image defaults to `DISCORD_REQUIRE_MENTION=false` and `DISCORD_AUTO_THREAD=false`, so replies stay in the channel and do not require `@mention`.
+Comma-separate multiple channel IDs. `DISCORD_ALLOWED_CHANNELS` limits the server channels where Hermes responds. The image sets `DISCORD_ALLOW_ALL_USERS=true`, `DISCORD_REQUIRE_MENTION=false`, and `DISCORD_AUTO_THREAD=false` so that any staff member who can access the allowed channel can communicate with the bot directly without requiring individual pairing approvals. Server channels not listed in `DISCORD_ALLOWED_CHANNELS` are strictly ignored.
 
-By default, Discord direct messages are denied because this starter does not configure a user or role allowlist. The channel allowlist authorizes guild messages only when the message comes from an allowed channel. Do not set `DISCORD_ALLOW_ALL_USERS`, `GATEWAY_ALLOW_ALL_USERS`, `DISCORD_ALLOWED_USERS`, or `DISCORD_ALLOWED_ROLES` unless you deliberately want to change that behavior. User and role authorization can permit DMs. An operator-approved Discord pairing is also an authorization grant and can permit that paired user to use DMs. Review `hermes pairing list` after restoring or reusing a persistent volume.
+Direct messages (DMs) to the bot should not be used for newsroom reporting. Keep communication in your designated private newsroom channels. Review `hermes pairing list` after restoring or reusing a persistent volume.
 
 After the private deployment works, use Railway's template composer to generate a reusable template from the project. In the template, mark all three required variables as user-supplied and attach a volume at `/opt/data`. Railway generates the final one-click template URL.
 

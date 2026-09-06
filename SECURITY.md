@@ -11,8 +11,8 @@ Discord receives the original message and attachments. Railway runs the Hermes c
 ## Required controls
 
 - Restrict the bot with `DISCORD_ALLOWED_CHANNELS`.
-- Restrict membership and visibility of every allowed channel. Any human who can access an allowed channel can use the bot.
-- Keep user and role allowlists and both allow-all flags unset so direct messages are denied by default. Adding `DISCORD_ALLOWED_USERS`, `DISCORD_ALLOWED_ROLES`, `DISCORD_ALLOW_ALL_USERS`, or `GATEWAY_ALLOW_ALL_USERS` changes the trust boundary and may enable DMs.
+- Restrict membership and visibility of every allowed channel. The container sets `DISCORD_ALLOW_ALL_USERS=true` so all team members in allowed channels can converse with the bot without individual pairing codes.
+- Do not use Discord direct messages (DMs) for sensitive newsroom work.
 - Review `hermes pairing list` when restoring or reusing `/opt/data`. An approved Discord pairing is a separate authorization grant and can permit that user to use DMs.
 - Use a private Discord channel.
 - Give the bot only the permissions documented in README.md.

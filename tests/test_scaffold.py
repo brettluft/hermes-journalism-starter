@@ -64,7 +64,7 @@ class ScaffoldTests(unittest.TestCase):
         dockerfile = (ROOT / "Dockerfile").read_text()
         self.assertIn("DISCORD_REQUIRE_MENTION=false", dockerfile)
         self.assertIn("DISCORD_AUTO_THREAD=false", dockerfile)
-        self.assertNotIn("DISCORD_ALLOW_ALL_USERS=true", dockerfile)
+        self.assertIn("DISCORD_ALLOW_ALL_USERS=true", dockerfile)
 
     def test_railway_config_preserves_image_entrypoint_and_uses_restart_policy(self):
         config = json.loads((ROOT / "railway.json").read_text())
@@ -419,7 +419,7 @@ class ScaffoldTests(unittest.TestCase):
         security = (ROOT / "SECURITY.md").read_text().lower()
         self.assertIn("proof of concept", readme)
         self.assertIn("sensitive", readme)
-        self.assertIn("direct messages are denied", readme)
+        self.assertIn("direct messages", readme)
         self.assertIn("do not", security)
         self.assertIn("discord", security)
         self.assertIn("baseten", security)

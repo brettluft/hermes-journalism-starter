@@ -3,7 +3,8 @@ FROM nousresearch/hermes-agent:latest
 USER root
 
 ENV DISCORD_REQUIRE_MENTION=false \
-    DISCORD_AUTO_THREAD=false
+    DISCORD_AUTO_THREAD=false \
+    DISCORD_ALLOW_ALL_USERS=true
 
 COPY --chmod=0755 docker/cont-init.d/00-journalism-bootstrap /etc/cont-init.d/00-journalism-bootstrap
 COPY --chmod=0755 docker/services.d/draft-library/run /etc/services.d/draft-library/run
