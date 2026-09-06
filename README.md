@@ -1,5 +1,7 @@
 # Hermes Journalism Starter
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/hermes-agent-newsroom-and-journalism-sta)
+
 This is a proof of concept for running [Hermes Agent](https://github.com/NousResearch/hermes-agent) as a private Discord research assistant on Railway. It uses a Baseten-hosted model and is designed to support newsroom-specific workflows.
 
 It is not a hosted product. Each newsroom or journalist deploys and pays for their own Railway and Baseten accounts, owns their Discord bot, and controls their Hermes data volume.
@@ -43,13 +45,13 @@ Turn on Developer Mode in Discord, then copy the ID for the allowed channel. The
 
 ## Railway deployment
 
-This repository is ready to become a Railway template. During private testing:
+Click the deploy button above or follow these steps:
 
-1. Create a Railway project from this GitHub repository.
-2. Add a persistent volume mounted at `/opt/data`. This is required. Redeployments lose Hermes sessions, memory, and configuration without it.
-3. Add the variables below.
+1. Click **[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/hermes-agent-newsroom-and-journalism-sta)**.
+2. Enter your `BASETEN_API_KEY`, `DISCORD_BOT_TOKEN`, and `DISCORD_ALLOWED_CHANNELS`.
+3. Ensure a persistent volume is attached and mounted at `/opt/data` (to preserve newsroom configurations, sessions, and draft signing keys).
 4. Deploy the service.
-5. Confirm the bot appears online, then send it a message in the allowed Discord channel. No `@mention` is required.
+5. Confirm the bot appears online in Discord, then send it a message in your allowed channel. No `@mention` is required.
 
 Railway does not override the image start command: the official Hermes image entrypoint runs the inherited `gateway run` command. The `00-journalism-bootstrap` init script only validates required variables and does not modify newsroom state or installed skill copies. The official `01-hermes-setup` script then safely seeds the starter configuration and SOUL onto a fresh volume and synchronizes bundled skills.
 
