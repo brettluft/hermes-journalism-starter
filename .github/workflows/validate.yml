@@ -25,6 +25,7 @@ jobs:
           skills/draft-publishing/scripts/spacefast_client.py
           skills/draft-publishing/scripts/draft_publish.py
           skills/draft-publishing/scripts/draft_library_server.py
+          skills/community-skill-sharing/scripts/package_skill.py
       - name: Validate shell syntax
         run: |
           bash -n docker/cont-init.d/00-journalism-bootstrap

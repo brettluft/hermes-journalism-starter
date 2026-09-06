@@ -23,6 +23,10 @@ class ScaffoldTests(unittest.TestCase):
             "LICENSE",
             "SECURITY.md",
             "setup/discord-bot-setup.html",
+            "skills/community-skill-sharing/SKILL.md",
+            "skills/community-skill-sharing/references/submission-contract.md",
+            "skills/community-skill-sharing/scripts/package_skill.py",
+            ".github/ISSUE_TEMPLATE/community_skill_submission.yml",
             "skills/unslop/SKILL.md",
             "skills/unslop/LICENSE",
             "skills/unslop/SOURCE.md",
@@ -334,7 +338,7 @@ class ScaffoldTests(unittest.TestCase):
         readme = (ROOT / "README.md").read_text()
         for command in (
             "python3 -m unittest discover -s tests -v",
-            "python3 -m py_compile skills/newsroom-setup/scripts/newsroom_config.py skills/draft-publishing/scripts/draft_store.py skills/draft-publishing/scripts/spacefast_client.py skills/draft-publishing/scripts/draft_publish.py skills/draft-publishing/scripts/draft_library_server.py",
+            "python3 -m py_compile skills/newsroom-setup/scripts/newsroom_config.py skills/draft-publishing/scripts/draft_store.py skills/draft-publishing/scripts/spacefast_client.py skills/draft-publishing/scripts/draft_publish.py skills/draft-publishing/scripts/draft_library_server.py skills/community-skill-sharing/scripts/package_skill.py",
             "bash -n docker/cont-init.d/00-journalism-bootstrap",
             "bash -n docker/services.d/draft-library/run",
             "python3 -m json.tool skills/newsroom-setup/templates/newsroom.example.json >/dev/null",

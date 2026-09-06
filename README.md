@@ -12,6 +12,7 @@ It is not a hosted product. Each newsroom or journalist deploys and pays for the
 - Persistent Hermes configuration, sessions, memory, and skills under `/opt/data`
 - The bundled `newsroom-setup` skill for conversational coverage and source configuration
 - The bundled `government-records-research` skill for on-demand, cited research in official records
+- The bundled `community-skill-sharing` skill for sanitizing and contributing custom newsroom skills upstream
 - The [`unslop`](skills/unslop/SKILL.md) editing skill for removing common AI writing patterns
 - Manual approval for dangerous commands
 - Secret redaction in Hermes tool output
@@ -134,6 +135,18 @@ To enable direct publication, set `SPACEFAST_TOKEN` and `SPACEFAST_TEAM_ID` as p
 
 Each Spacefast publish requires explicit editor approval, including under `auto_private`. Publishing is an external disclosure to Spacefast, while local remains canonical. Only the generated static rendition is uploaded. The raw source, newsroom config, publication metadata, and HMAC key are never uploaded. A rendition can still contain sensitive text. It is not suitable for source-protection work or confidential identities.
 
+## Community skill sharing
+
+Newsrooms that build custom investigative scrapers, public data decoders, or FOIA trackers can sanitize, validate, and share them back to the starter repository.
+
+Run:
+
+```bash
+python3 /opt/data/skills/community-skill-sharing/scripts/package_skill.py --skill custom-skill-name --author "@reporter"
+```
+
+The script verifies required frontmatter, ensures Python scripts compile cleanly, checks that templates parse as valid JSON, normalizes absolute paths to `$HERMES_HOME`, and scans for accidental secrets or tokens. It outputs a pre-filled one-click GitHub issue URL where the contributor can review and open the contribution with a single click without needing GitHub credentials inside the container.
+
 ## Updating
 
 Redeploy after merging repository changes. Hermes seeds `config.yaml` and `SOUL.md` only when they are absent. On startup, Hermes also synchronizes bundled skills into the persistent `/opt/data/skills` directory. It installs new bundled skills on existing volumes, updates unchanged copies, and preserves locally modified or deliberately deleted copies. Redeploys do not overwrite newsroom choices in `/opt/data/newsroom`.
@@ -194,7 +207,7 @@ Run these commands from the repository root. They use fake Spacefast fixtures an
 
 ```bash
 python3 -m unittest discover -s tests -v
-python3 -m py_compile skills/newsroom-setup/scripts/newsroom_config.py skills/draft-publishing/scripts/draft_store.py skills/draft-publishing/scripts/spacefast_client.py skills/draft-publishing/scripts/draft_publish.py skills/draft-publishing/scripts/draft_library_server.py
+python3 -m py_compile skills/newsroom-setup/scripts/newsroom_config.py skills/draft-publishing/scripts/draft_store.py skills/draft-publishing/scripts/spacefast_client.py skills/draft-publishing/scripts/draft_publish.py skills/draft-publishing/scripts/draft_library_server.py skills/community-skill-sharing/scripts/package_skill.py
 bash -n docker/cont-init.d/00-journalism-bootstrap
 bash -n docker/services.d/draft-library/run
 python3 -m json.tool railway.json >/dev/null
